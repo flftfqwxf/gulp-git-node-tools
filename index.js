@@ -103,7 +103,10 @@ module.exports = async function(opts = {}) {
 			return opts.callback && opts.callback();
 		}
 	}
-	return opts.callback && opts.callback();
+	else {
+		return opts.callback && opts.callback();
+
+	}
 
 
 

@@ -1,0 +1,24 @@
+{
+ "name": "zkt-build-tools",
+ "version": "0.1.3",
+ "description": "",
+ "main": "gulpfile.js",
+ "scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1"
+ },
+ "repository": {
+  "type": "git",
+  "url": "git+https://github.com/flftfqwxf/gulp-git-node-tools.git"
+ },
+ "author": "",
+ "license": "ISC",
+ "bugs": {
+  "url": "https://github.com/flftfqwxf/gulp-git-node-tools/issues"
+ },
+ "homepage": "https://github.com/flftfqwxf/gulp-git-node-tools#readme",
+ "dependencies": {
+  "compare-version": "^0.1.2",
+  "compare-versions": "^3.1.0",
+  "npm-check": "^5.7.0"
+ }
+}

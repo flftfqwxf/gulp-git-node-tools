@@ -34,10 +34,10 @@ module.exports = async function(opts = {}) {
 	let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
 	let checkModuleArray = Object.keys(checkModules);
 	if (opts.checkModulesVersion && opts.checkModulesVersion.include) {
-		let inc = pkg.checkModulesVersion.include;
+		let inc = opts.checkModulesVersion.include;
 		if (Array.isArray(inc) && inc.length > 0) {
 			npmCheckConfig.ignore = checkModuleArray.filter(item => {
-				return pkg.checkModulesVersion.include.indexOf(item) === -1;
+				return opts.checkModulesVersion.include.indexOf(item) === -1;
 			})
 		}
 	}
@@ -47,7 +47,7 @@ module.exports = async function(opts = {}) {
 	await npmCheck(npmCheckConfig).then(states => {
 
 			states.get('packages').forEach((item) => {
-				if (pkg.checkModulesVersion.include.indexOf(item.moduleName) !== -1) {
+				if (opts.checkModulesVersion.include.indexOf(item.moduleName) !== -1) {
 					currentState[item.moduleName] = item
 				}
 			});

@@ -11,7 +11,8 @@ module.exports = async function(opts = {}) {
 
 	opts = Object.assign({
 		pkgPath: path.resolve(process.cwd(), 'package.json'),
-		updateToSpecailTag: null
+		updateToSpecailTag: null,
+		update: true
 	}, opts);
 
 	debugInstalledPackage(opts.pkgPath);
@@ -24,12 +25,15 @@ module.exports = async function(opts = {}) {
 		console.error('文件找不到:' + pkgPath);
 		process.exit(-1);
 	}
+	if (pkg.checkModulesVersion && pkg.checkModulesVersion.include) {
+		opts = Object.assign({}, pkg.checkModulesVersion, opts);
+	}
 	let installList = {};
 
 	let npmCheckConfig = {}
 	let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
 	let checkModuleArray = Object.keys(checkModules);
-	if (pkg.checkModulesVersion && pkg.checkModulesVersion.include) {
+	if (opts.checkModulesVersion && opts.checkModulesVersion.include) {
 		let inc = pkg.checkModulesVersion.include;
 		if (Array.isArray(inc) && inc.length > 0) {
 			npmCheckConfig.ignore = checkModuleArray.filter(item => {
@@ -53,7 +57,6 @@ module.exports = async function(opts = {}) {
 	if (currentState) {
 		for (var item in currentState) {
 			let currentPackage = currentState[item];
-			let installedVersion;
 			if (currentPackage) {
 
 				let installedVersion = currentPackage.isInstalled ? currentPackage.installed : null;
@@ -79,28 +82,29 @@ module.exports = async function(opts = {}) {
 
 	}
 
+	if (opts.update) {
+		let command = `npm i  `;
+		if (Object.keys(installList).length !== 0) {
+			for (let item in installList) {
+				command += ` ${item}@${installList[item]} `;
 
-	let command = `npm i  `;
-
-
-	if (Object.keys(installList).length !== 0) {
-		for (let item in installList) {
-			command += ` ${item}@${installList[item]} `;
-
-		}
-		console.log(`更新版本：${command}`);
-		exec(command, function(error, stdout, stderr) {
-			console.log(stdout);
-			console.error(stderr);
-			if (stderr && stderr.indexOf('npm ERR') !== -1) {
-				process.exit();
 			}
-			return opts.callback && opts.callback();
-		});
+			console.log(`更新版本：${command}`);
+			exec(command, function(error, stdout, stderr) {
+				console.log(stdout);
+				console.error(stderr);
+				if (stderr && stderr.indexOf('npm ERR') !== -1) {
+					process.exit();
+				}
+				return opts.callback && opts.callback();
+			});
 
-	} else {
-		return opts.callback && opts.callback();
+		} else {
+			return opts.callback && opts.callback();
+		}
 	}
+	return opts.callback && opts.callback();
+
 
 
 }

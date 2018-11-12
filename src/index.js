@@ -171,7 +171,7 @@ async function asyncForEach(array, callback, stopCallback) {
 
 async function tagVersion(packageName, packageVersion, installedVersion) {
 	let res = await packageJson(packageName, {fullMetadata: true, allVersions: true});
-	if (res && res['dist-tags'][packageVersion] && res['dist-tags'][packageVersion] !== installedVersion && installedVersion) {
+	if (res && res['dist-tags'][packageVersion] && res['dist-tags'][packageVersion] !== installedVersion) {
 		return {
 			unInstallVersion: res['dist-tags'][packageVersion],
 			latestVersion: res['dist-tags']['latest']

@@ -77,7 +77,10 @@ module.exports = async function(opts = {}) {
 
 				if (unInstallVersion) {
 
-					installList[item] = unInstallVersion
+					installList[item] = {
+						version: unInstallVersion,
+						type: 'num'
+					}
 					console.log("\x1b[31m", ` ${item}已安装版本：${installedVersion} vs package中版本：${packageVersion} vs 最新版本 ${item + '@latest: ' + latestVersion}不一致`);
 					console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 小于 @latest<${latestVersion}>版本，则安装 @latest<${latestVersion}>版本，并更新配置文件版本为<${latestVersion}>`);
 					console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 大于 @latest<${latestVersion}>版本，则安装 配置文件中版本<${packageVersion}>`);
@@ -92,7 +95,6 @@ module.exports = async function(opts = {}) {
 
 	}
 
-	let tagInstallList = {};
 	await asyncForEach(includesModules, async (item) => {
 
 		if (!currentState[item]) {
@@ -112,7 +114,10 @@ module.exports = async function(opts = {}) {
 			let packageVersion = checkModules[item]
 			let addTagVersion = await tagVersion(item, packageVersion, installedVersion);
 			if (addTagVersion) {
-				tagInstallList[item] = packageVersion;
+				installList[item] = {
+					version: packageVersion,
+					type: 'tag'
+				};
 				console.log(colors.green(`--------------------------------${colors.blue('更新tag版本')}-----------------------------------`));
 				console.log(`${colors.green(item)}已安装版本：${colors.green(installedVersion)} vs package中版本为${colors.yellow('TAG:' + packageVersion)}，版本号为：${colors.yellow(addTagVersion.unInstallVersion)} vs 最新版本 ${colors.green(item + '@latest: ' + addTagVersion.latestVersion)}`);
 				console.log(colors.red(` ！！！！注意：当package.json中的版本号为[tag]时，会始终安装当前[tag]的最新版本，不会更新到[latest]的最新版，请谨慎使用！！！！`));
@@ -121,7 +126,6 @@ module.exports = async function(opts = {}) {
 	})
 	if (opts.update) {
 		await installPackage(installList)
-		await installPackage(tagInstallList, 'tag')
 		return opts.callback && opts.callback();
 	}
 	else {
@@ -133,15 +137,15 @@ module.exports = async function(opts = {}) {
 
 }
 
-async function installPackage(installList, type = "") {
+async function installPackage(installList) {
 	let command = `npm i  `, isRun = false;
 
 	if (Object.keys(installList).length !== 0) {
 		for (let item in installList) {
-			command += ` ${item}@${installList[item]} `;
+			command += ` ${item}@${installList[item].version} `;
 
 		}
-		console.log(colors.blue(`----------------更新${type}版本：${command}-----------------`));
+		console.log(colors.blue(`----------------更新版本：${command}-----------------`));
 		return await new Promise(resolve => {
 			exec(command + (type === 'tag' && ' --no-save'), function(error, stdout, stderr) {
 				console.log(colors.green('更新版本日志：'), stdout);

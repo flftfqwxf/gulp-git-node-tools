@@ -1,16 +1,10 @@
 const exec = require('child_process').exec;
-const colors = require('colors');
+
 
 const compareVersion = require('compare-versions');
 const debugInstalledPackage = require('debug')('debugInstalledPackage');
 const npmCheck = require('npm-check');
 const path = require('path');
-const packageJson = require('package-json');
-const semver = require('semver');
-const findModulePath = require('./find-module-path');
-const pathExists = require('path-exists');
-const readPackageJson = require('./read-package-json');
-
 // const promat = require('prompt');
 //验证包版本
 module.exports = async function(opts = {}) {
@@ -39,11 +33,11 @@ module.exports = async function(opts = {}) {
 	let npmCheckConfig = {}
 	let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
 	let checkModuleArray = Object.keys(checkModules);
-	let includesModules = opts.checkModulesVersion.include;
-	if (opts.checkModulesVersion && includesModules) {
-		if (Array.isArray(includesModules) && includesModules.length > 0) {
+	if (opts.checkModulesVersion && opts.checkModulesVersion.include) {
+		let inc = opts.checkModulesVersion.include;
+		if (Array.isArray(inc) && inc.length > 0) {
 			npmCheckConfig.ignore = checkModuleArray.filter(item => {
-				return includesModules.indexOf(item) === -1;
+				return opts.checkModulesVersion.include.indexOf(item) === -1;
 			})
 		}
 	}
@@ -53,7 +47,7 @@ module.exports = async function(opts = {}) {
 	await npmCheck(npmCheckConfig).then(states => {
 
 			states.get('packages').forEach((item) => {
-				if (includesModules.indexOf(item.moduleName) !== -1) {
+				if (opts.checkModulesVersion.include.indexOf(item.moduleName) !== -1) {
 					currentState[item.moduleName] = item
 				}
 			});
@@ -64,11 +58,7 @@ module.exports = async function(opts = {}) {
 		for (var item in currentState) {
 			let currentPackage = currentState[item];
 			if (currentPackage) {
-				if (currentPackage.regError) {
-					console.error('获取包信息出错了：请检查包名和源是否正确：' + currentPackage.regError);
-					return;
 
-				}
 				let installedVersion = currentPackage.isInstalled ? currentPackage.installed : null;
 				let latestVersion = currentPackage.latest;
 				let packageVersion = currentPackage.packageJson || currentPackage.installed;
@@ -92,37 +82,26 @@ module.exports = async function(opts = {}) {
 
 	}
 
-	let tagInstallList = {};
-	await asyncForEach(includesModules, async (item) => {
-
-		if (!currentState[item]) {
-			var modulePath = findModulePath(item, opts.pkgPath);
-			var packageIsInstalled = pathExists.sync(modulePath);
-			let installedVersion = '';
-			if (packageIsInstalled) {
-				var modulePackageJson = readPackageJson(path.join(modulePath, 'package.json'));
-				installedVersion = modulePackageJson.version;
-				var isPrivate = Boolean(modulePackageJson.private);
-				if (isPrivate) {
-					return false;
-				}
-
-			}
-			// Ignore private packages
-			let packageVersion = checkModules[item]
-			let addTagVersion = await tagVersion(item, packageVersion, installedVersion);
-			if (addTagVersion) {
-				tagInstallList[item] = packageVersion;
-				console.log(colors.green(`--------------------------------${colors.blue('更新tag版本')}-----------------------------------`));
-				console.log(`${colors.green(item)}已安装版本：${colors.green(installedVersion)} vs package中版本为${colors.yellow('TAG:' + packageVersion)}，版本号为：${colors.yellow(addTagVersion.unInstallVersion)} vs 最新版本 ${colors.green(item + '@latest: ' + addTagVersion.latestVersion)}`);
-				console.log(colors.red(` ！！！！注意：当package.json中的版本号为[tag]时，会始终安装当前[tag]的最新版本，不会更新到[latest]的最新版，请谨慎使用！！！！`));
-			}
-		}
-	})
 	if (opts.update) {
-		await installPackage(installList)
-		await installPackage(tagInstallList, 'tag')
-		return opts.callback && opts.callback();
+		let command = `npm i  `;
+		if (Object.keys(installList).length !== 0) {
+			for (let item in installList) {
+				command += ` ${item}@${installList[item]} `;
+
+			}
+			console.log(`更新版本：${command}`);
+			exec(command, function(error, stdout, stderr) {
+				console.log(stdout);
+				console.error(stderr);
+				if (stderr && stderr.indexOf('npm ERR') !== -1) {
+					process.exit();
+				}
+				return opts.callback && opts.callback();
+			});
+
+		} else {
+			return opts.callback && opts.callback();
+		}
 	}
 	else {
 		return opts.callback && opts.callback();
@@ -131,53 +110,6 @@ module.exports = async function(opts = {}) {
 
 
 
-}
-
-async function installPackage(installList, type = "") {
-	let command = `npm i  `, isRun = false;
-
-	if (Object.keys(installList).length !== 0) {
-		for (let item in installList) {
-			command += ` ${item}@${installList[item]} `;
-
-		}
-		console.log(colors.blue(`----------------更新${type}版本：${command}-----------------`));
-		return await new Promise(resolve => {
-			exec(command + (type === 'tag' && ' --no-save'), function(error, stdout, stderr) {
-				console.log(colors.green('更新版本日志：'), stdout);
-				if (stderr && stderr.indexOf('npm ERR') !== -1) {
-					console.error('更新版本日志:', stderr);
-					process.exit();
-				}
-				resolve(1);
-			});
-		})
-
-
-	} else {
-		isRun = true;
-	}
-	return isRun
-}
-
-async function asyncForEach(array, callback, stopCallback) {
-	for (let index = 0; index < array.length; index++) {
-		if (stopCallback && stopCallback()) {
-			break;
-		}
-		await callback(array[index], index, array)
-	}
-}
-
-async function tagVersion(packageName, packageVersion, installedVersion) {
-	let res = await packageJson(packageName, {fullMetadata: true, allVersions: true});
-	if (res && res['dist-tags'][packageVersion] && res['dist-tags'][packageVersion] !== installedVersion) {
-		return {
-			unInstallVersion: res['dist-tags'][packageVersion],
-			latestVersion: res['dist-tags']['latest']
-		}
-	}
-	return null;
 }
 
 function getNeedVersion(packageVersion, installedVersion, latestVersion) {

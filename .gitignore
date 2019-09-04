@@ -1,1 +1,12 @@
-# Created by .ignore support plugin (hsz.mobi).idea/node_modules/test/dist/package-lock.jsonpackage-local.json/local/
+# Created by .ignore support plugin (hsz.mobi)
+.idea/
+
+node_modules/
+test/
+dist/
+package-lock.json
+package-local.json
+/local/
+dist/README.md
+local/
+/node_modules/

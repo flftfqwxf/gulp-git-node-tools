@@ -1,6 +1,6 @@
 const exec = require('child_process').exec;
 
-
+const colors = require('colors');
 const compareVersion = require('compare-versions');
 const debugInstalledPackage = require('debug')('debugInstalledPackage');
 const npmCheck = require('npm-check');
@@ -69,7 +69,9 @@ module.exports = async function (opts = {}) {
 
 		}
 	)
+
 	if (currentState) {
+
 		for (var item in currentState) {
 			let currentPackage = currentState[item];
 			if (currentPackage) {
@@ -84,18 +86,21 @@ module.exports = async function (opts = {}) {
 				if (unInstallVersion) {
 
 					installList[item] = unInstallVersion;
+					console.log('----------包:',item,colors.green(` ----------当前分支:` + opts.currentBranch),' and 对应tag:',colors.cyan(checkGitVersion));
 					if (tagVersion) {
-						console.log("\x1b[31m", ` ${item}已安装版本：${installedVersion} vs package中版本：${packageVersion} vs 最新版本 ${item + '@latest: ' + latestVersion}不一致 vs tag:[${checkGitVersion}]版本：${packageVersion}`);
-						if (compareVersion(tagVersion,latestVersion)>0) {
-							console.log("\x1b[31m", ` @latest<${latestVersion}>版本 <  tag:[${checkGitVersion}]版本：${packageVersion}`);
+						if (compareVersion(tagVersion, latestVersion) > 0) {
+							console.log(colors.blue(` @latest<${latestVersion}>版本 <  tag:[${checkGitVersion}]版本：${tagVersion}`));
 						}
-						console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 小于 @latest<${latestVersion}>版本或 tag:[${checkGitVersion}]版本，则安装 @latest<${latestVersion}>版本>和 tag:[${checkGitVersion}]版本：${packageVersion}中，较大的版本`);
-						console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 大于 @latest<${latestVersion}>版本和 tag:[${checkGitVersion}]版本，则安装 配置文件中版本<${packageVersion}>`);
 
-					}else {
-						console.log("\x1b[31m", ` ${item}已安装版本：${installedVersion} vs package中版本：${packageVersion} vs 最新版本 ${item + '@latest: ' + latestVersion}不一致`);
-						console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 小于 @latest<${latestVersion}>版本，则安装 @latest<${latestVersion}>版本，并更新配置文件版本为<${latestVersion}>`);
-						console.log("\x1b[31m", ` 如果配置文件中版本<${packageVersion}> 大于 @latest<${latestVersion}>版本，则安装 配置文件中版本<${packageVersion}>`);
+						console.log(colors.red(` ${item}已安装版本：${colors.blue(installedVersion)} vs package中版本：${colors.blue(packageVersion)} vs 最新版本 ${item + '@latest: ' + colors.blue(latestVersion)} vs tag:[${colors.blue(checkGitVersion)}]版本：${colors.blue(tagVersion)} 不一致`));
+
+						console.log(colors.red(` 如果配置文件中版本<${packageVersion}> 小于 @latest<${latestVersion}>版本或 tag:[${checkGitVersion}]版本<${tagVersion}>，则安装 @latest<${latestVersion}>版本>和 tag:[${checkGitVersion}]版本：${packageVersion}中，${colors.yellow('较大的版本')}`));
+						console.log(colors.red(` 如果配置文件中版本<${packageVersion}> 大于 @latest<${latestVersion}>版本和 tag:[${checkGitVersion}]版本<${tagVersion}>，则安装 配置文件中版本<${packageVersion}>`));
+
+					} else {
+						console.log(colors.red(` ${item}已安装版本：${colors.blue(installedVersion)} vs package中版本：${colors.blue(packageVersion)} vs 最新版本 ${item + '@latest: ' + colors.blue(latestVersion)}不一致`));
+						console.log(colors.red(` 如果配置文件中版本<${colors.blue(packageVersion)}> 小于 @latest<${colors.blue(latestVersion)}>版本，则安装 @latest<${colors.blue(latestVersion)}>版本，并更新配置文件版本为<${colors.blue(latestVersion)}>`));
+						console.log(colors.red(` 如果配置文件中版本<${colors.blue(packageVersion)}> 大于 @latest<${latestVersion}>版本，则安装 配置文件中版本<${colors.blue(packageVersion)}>`));
 					}
 
 
@@ -139,12 +144,11 @@ module.exports = async function (opts = {}) {
 
 }
 
-function getNeedVersion(packageVersion, installedVersion, tagVersion, latestVersion) {
+function getNeedVersion(packageVersion, installedVersion, latestVersion, tagVersion) {
 	packageVersion = packageVersion && packageVersion.replace(/^(\^|\~)/, '');
 	installedVersion = installedVersion && installedVersion.replace(/^(\^|\~)/, '');
 	latestVersion = latestVersion && latestVersion.replace(/^(\^|\~)/, '');
 	tagVersion = tagVersion && tagVersion.replace(/^(\^|\~)/, '');
-
 	let needVersion = packageVersion;
 	if (tagVersion) {
 		needVersion = compareVersion(latestVersion, tagVersion) > 0 ? latestVersion : tagVersion;

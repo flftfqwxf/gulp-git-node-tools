@@ -7,6 +7,5 @@ dist/
 package-lock.json
 package-local.json
 /local/
-dist/README.md
 local/
 /node_modules/

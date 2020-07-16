@@ -1,5 +1,6 @@
 const exec = require('child_process').exec;
 
+
 const colors = require('colors');
 const compareVersion = require('compare-versions');
 const debugInstalledPackage = require('debug')('debugInstalledPackage');
@@ -7,19 +8,40 @@ const npmCheck = require('npm-check');
 const path = require('path');
 const packageJson = require('package-json');
 const branchName = require('current-git-branch');
+const isInstalled = require('./isInstalled');
+const findModulePath = require('./find-module-path');
+const readPackageJson = require('./read-package-json');
+const pathExists = require('path-exists');
 
 async function getTagVersion(packageName, tag) {
-	let res = await packageJson(packageName, { fullMetadata: true, allVersions: true });
+	let res = await packageJson(packageName, {fullMetadata: true, allVersions: true});
 	return res['dist-tags'][tag];
 
 	// return null;
 }
+async function getPackageJsonList(packageList, opts) {
+	let list = packageList.map(item => {
+		return packageJson(item, {fullMetadata: true, allVersions: true})
+
+	});
+	let result = await Promise.all(list);
+	return result.map(item => {
+		item.isInstalled = isInstalled(item.name);
+		if (item.isInstalled) {
+			let modulePath = findModulePath(item.name, opts.cwd);
+			item.installedModulePackageJson = readPackageJson(path.join(modulePath, 'package.json'));
+			item.installedVersion=item.installedModulePackageJson.version
+		}
+		return item
+	})
+}
 
 // const promat = require('prompt');
 //验证包版本
-module.exports = async function (opts = {}) {
+module.exports = async function(opts = {}) {
 
 	opts = Object.assign({
+		cwd: process.cwd(),
 		pkgPath: path.resolve(process.cwd(), 'package.json'),
 		updateToSpecailTag: null,
 		update: true,
@@ -44,31 +66,32 @@ module.exports = async function (opts = {}) {
 		opts = Object.assign({}, pkg.checkModulesVersion, opts);
 	}
 	let installList = {};
+	let currentState = await getPackageJsonList(opts.checkModulesVersion.include)
 
-	let npmCheckConfig = {}
-	let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
-	let checkModuleArray = Object.keys(checkModules);
-	if (opts.checkModulesVersion && opts.checkModulesVersion.include) {
-		let inc = opts.checkModulesVersion.include;
-		if (Array.isArray(inc) && inc.length > 0) {
-			npmCheckConfig.ignore = checkModuleArray.filter(item => {
-				return opts.checkModulesVersion.include.indexOf(item) === -1;
-			})
-		}
-	}
+	// let npmCheckConfig = {}
+	// let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
+	// let checkModuleArray = Object.keys(checkModules);
+	// if (opts.checkModulesVersion && opts.checkModulesVersion.include) {
+	// 	let inc = opts.checkModulesVersion.include;
+	// 	if (Array.isArray(inc) && inc.length > 0) {
+	// 		npmCheckConfig.ignore = checkModuleArray.filter(item => {
+	// 			return opts.checkModulesVersion.include.indexOf(item) === -1;
+	// 		})
+	// 	}
+	// }
 
-// let checkModules = ['zhida-koa-utils', 'zkt-polyfill'];
-	let currentState = {}
-	await npmCheck(npmCheckConfig).then(states => {
-
-			states.get('packages').forEach((item) => {
-				if (opts.checkModulesVersion.include.indexOf(item.moduleName) !== -1) {
-					currentState[item.moduleName] = item
-				}
-			});
-
-		}
-	)
+// // let checkModules = ['zhida-koa-utils', 'zkt-polyfill'];
+// 	let currentState = {}
+// 	await npmCheck(npmCheckConfig).then(states => {
+//
+// 			states.get('packages').forEach((item) => {
+// 				if (opts.checkModulesVersion.include.indexOf(item.moduleName) !== -1) {
+// 					currentState[item.moduleName] = item
+// 				}
+// 			});
+//
+// 		}
+// 	)
 
 	if (currentState) {
 
@@ -86,7 +109,7 @@ module.exports = async function (opts = {}) {
 				if (unInstallVersion) {
 
 					installList[item] = unInstallVersion;
-					console.log('----------包:',item,colors.green(` ----------当前分支:` + opts.currentBranch),' and 对应tag:',colors.cyan(checkGitVersion));
+					console.log('----------包:', item, colors.green(` ----------当前分支:` + opts.currentBranch), ' and 对应tag:', colors.cyan(checkGitVersion));
 					if (tagVersion) {
 						if (compareVersion(tagVersion, latestVersion) > 0) {
 							console.log(colors.blue(` @latest<${latestVersion}>版本 <  tag:[${checkGitVersion}]版本：${tagVersion}`));
@@ -102,7 +125,6 @@ module.exports = async function (opts = {}) {
 						console.log(colors.red(` 如果配置文件中版本<${colors.blue(packageVersion)}> 小于 @latest<${colors.blue(latestVersion)}>版本，则安装 @latest<${colors.blue(latestVersion)}>版本，并更新配置文件版本为<${colors.blue(latestVersion)}>`));
 						console.log(colors.red(` 如果配置文件中版本<${colors.blue(packageVersion)}> 大于 @latest<${latestVersion}>版本，则安装 配置文件中版本<${colors.blue(packageVersion)}>`));
 					}
-
 
 
 				}
@@ -122,7 +144,7 @@ module.exports = async function (opts = {}) {
 
 			}
 			console.log(`更新版本：${command}`);
-			exec(command, function (error, stdout, stderr) {
+			exec(command, function(error, stdout, stderr) {
 				console.log(stdout);
 				console.error(stderr);
 				if (stderr && stderr.indexOf('npm ERR') !== -1) {
@@ -134,12 +156,10 @@ module.exports = async function (opts = {}) {
 		} else {
 			return opts.callback && opts.callback();
 		}
-	}
-	else {
+	} else {
 		return opts.callback && opts.callback();
 
 	}
-
 
 
 }

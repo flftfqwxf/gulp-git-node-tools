@@ -12,7 +12,7 @@ const isInstalled = require('./isInstalled');
 const findModulePath = require('./find-module-path');
 const readPackageJson = require('./read-package-json');
 const pathExists = require('path-exists');
-
+const semver = require('semver');
 async function getTagVersion(packageName, tag) {
 	let res = await packageJson(packageName, {fullMetadata: true, allVersions: true});
 	return res['dist-tags'][tag];
@@ -24,16 +24,22 @@ async function getPackageJsonList(packageList, opts) {
 		return packageJson(item, {fullMetadata: true, allVersions: true})
 
 	});
-	let result = await Promise.all(list);
-	return result.map(item => {
+	let getListInfo = await Promise.all(list);
+	let result = []
+	getListInfo.map(item => {
 		item.isInstalled = isInstalled(item.name);
 		if (item.isInstalled) {
 			let modulePath = findModulePath(item.name, opts.cwd);
 			item.installedModulePackageJson = readPackageJson(path.join(modulePath, 'package.json'));
-			item.installedVersion=item.installedModulePackageJson.version
+			item.installedVersion = item.installedModulePackageJson.version;
+			item.packageVersion = opts.packageVersionJson.dependencies[item.name] || opts.packageVersionJson.devDependencies[item.name];
+
 		}
-		return item
+		if (item.packageVersion) {
+			result.push(item)
+		}
 	})
+	return result;
 }
 
 // const promat = require('prompt');
@@ -48,7 +54,7 @@ module.exports = async function(opts = {}) {
 		currentBranch: branchName(),
 		gitBranchVersion: {
 			"zkt_trunk": 'beta'
-		}
+		},
 	}, opts);
 
 	let checkGitVersion = opts.gitBranchVersion[opts.currentBranch];
@@ -62,11 +68,13 @@ module.exports = async function(opts = {}) {
 		console.error('文件找不到:' + pkgPath);
 		process.exit(-1);
 	}
+	// package.json中包版本
+	opts.packageVersionJson = {devDependencies: pkg.devDependencies, dependencies: pkg.dependencies};
 	if (pkg.checkModulesVersion && pkg.checkModulesVersion.include) {
 		opts = Object.assign({}, pkg.checkModulesVersion, opts);
 	}
 	let installList = {};
-	let currentState = await getPackageJsonList(opts.checkModulesVersion.include)
+	let currentState = await getPackageJsonList(opts.checkModulesVersion.include, opts)
 
 	// let npmCheckConfig = {}
 	// let checkModules = Object.assign({}, pkg.devDependencies, pkg.dependencies);
@@ -95,15 +103,18 @@ module.exports = async function(opts = {}) {
 
 	if (currentState) {
 
-		for (var item in currentState) {
-			let currentPackage = currentState[item];
+		for (let ids in currentState) {
+			let currentPackage = currentState[ids];
+			let item = currentPackage['name'];
 			if (currentPackage) {
 
-				let installedVersion = currentPackage.isInstalled ? currentPackage.installed : null;
-				let latestVersion = currentPackage.latest;
-				let packageVersion = currentPackage.packageJson || currentPackage.installed;
-				let tagVersion = await getTagVersion(item, checkGitVersion)
-				let unInstallVersion = getNeedVersion(packageVersion, installedVersion, latestVersion, tagVersion, currentPackage.isInstalled);
+				let installedVersion = currentPackage.isInstalled ? currentPackage.installedVersion : null;
+				let latestVersion = currentPackage['dist-tags'].latest;
+
+				//前当项目中，package.json中的包版本
+				let packageVersion = currentPackage.packageVersion;
+				let tagVersion = currentPackage['dist-tags'][checkGitVersion];
+				let unInstallVersion = getNeedVersion(packageVersion, installedVersion, latestVersion, tagVersion);
 
 
 				if (unInstallVersion) {
@@ -164,18 +175,22 @@ module.exports = async function(opts = {}) {
 
 }
 
+function getVersion(version) {
+	const reg = /((\d+)(\.*))+/;
+	return version && version.match(reg)[0];
+}
 function getNeedVersion(packageVersion, installedVersion, latestVersion, tagVersion) {
-	packageVersion = packageVersion && packageVersion.replace(/^(\^|\~)/, '');
-	installedVersion = installedVersion && installedVersion.replace(/^(\^|\~)/, '');
-	latestVersion = latestVersion && latestVersion.replace(/^(\^|\~)/, '');
-	tagVersion = tagVersion && tagVersion.replace(/^(\^|\~)/, '');
+	packageVersion = getVersion(packageVersion);
+	installedVersion = getVersion(installedVersion);
+	latestVersion = getVersion(latestVersion);
+	tagVersion = getVersion(tagVersion);
 	let needVersion = packageVersion;
 	if (tagVersion) {
-		needVersion = compareVersion(latestVersion, tagVersion) > 0 ? latestVersion : tagVersion;
-		needVersion = compareVersion(needVersion, packageVersion) > 0 ? needVersion : packageVersion;
+		needVersion = semver.gt(latestVersion, tagVersion) > 0 ? latestVersion : tagVersion;
+		needVersion = semver.gt(needVersion, packageVersion) > 0 ? needVersion : packageVersion;
 
 	} else {
-		needVersion = compareVersion(latestVersion, packageVersion) > 0 ? latestVersion : packageVersion;
+		needVersion = semver.gt(latestVersion, packageVersion) > 0 ? latestVersion : packageVersion;
 	}
 
 

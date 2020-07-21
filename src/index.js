@@ -4,14 +4,22 @@ const exec = require('child_process').exec;
 const colors = require('colors');
 const compareVersion = require('compare-versions');
 const debugInstalledPackage = require('debug')('debugInstalledPackage');
-const npmCheck = require('npm-check');
 const path = require('path');
 const packageJson = require('package-json');
 const branchName = require('current-git-branch');
-const isInstalled = require('./isInstalled');
+const isInstalled = function(pkgName) {
+	try {
+		console.log(pkgName);
+		require.resolve(pkgName)
+		return true
+	} catch (e) {
+
+	}
+
+}
 const findModulePath = require('./find-module-path');
 const readPackageJson = require('./read-package-json');
-const pathExists = require('path-exists');
+// const pathExists = require('path-exists');
 const semver = require('semver');
 async function getTagVersion(packageName, tag) {
 	let res = await packageJson(packageName, {fullMetadata: true, allVersions: true});

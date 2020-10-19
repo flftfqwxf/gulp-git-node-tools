@@ -61,11 +61,15 @@ module.exports = async function(opts = {}) {
 		update: true,
 		currentBranch: branchName(),
 		gitBranchVersion: {
-			"zkt_trunk": 'beta'
+			"zkt_trunk": 'beta',
+			"hotfix":'hotfix'
 		},
 	}, opts);
-
+	
 	let checkGitVersion = opts.gitBranchVersion[opts.currentBranch];
+	if (!checkGitVersion && opts.currentBranch.indexOf('hotfix')!==-1) {
+		checkGitVersion='hotfix';
+	}
 	debugInstalledPackage(opts.pkgPath);
 	let pkg;
 	try {
